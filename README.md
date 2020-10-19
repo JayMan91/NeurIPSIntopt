@@ -33,3 +33,13 @@ To run the experiment of Building Knapsack, go to the directory experiments/Buil
 ```train
 cd experiments/Building Knapsack/
 python ModelRun.py
+```
+To run the experiment of Energy-cost aware scheduling, go to the directory experiments/EnergyScheduling/ and then run exp_run.py
+
+To run the experiment of Shortest path problem, go to the directory experiments/Twitter Shortest Path/ and unzip the data and then run exp_run.py
+```train
+cd experiments/Twitter\ Shortest\ Path/
+unzip data.zip
+python exp_run.py
+```
+
