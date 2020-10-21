@@ -408,30 +408,14 @@ class Intopt:
                     x = IPOfunc(G,h,A,b,max_iter=self.max_iter, thr=self.thr,damping=self.damping,
                             smoothing=self.smoothing,bounds=[(0,1)])(-op)
                     loss = -(x*y).mean()
-                    op.retain_grad()
+                    # op.retain_grad()
 
                     loss.backward()
-                    op_grad = copy.deepcopy(op.grad)
-                    grad_dict = {}
-                    grad_dict['epoch'] = e
-                    grad_dict['subepoch'] = i
-                    for l in range(len(op_grad)):
-                        grad_dict['intopt_cgrad'] = op_grad[l].item()
-                        grad_dict['prediction'] = op[l].item()
-                        grad_dict['true'] = y[l].item()                        
-                        grad_list.append(copy.deepcopy(grad_dict))                    
-                    self.optimizer.step()
-                    total_loss += loss.item()
+
                 logging.info("EPOCH Ends")
             print("Epoch{} ::loss {} ->".format(e,total_loss))
             print(self.val_loss(valid_econ, valid_prop))
             print("______________")
-        dd = defaultdict(list)
-        for d in grad_list:
-            for key, value in d.items():
-                dd[key].append(value)
-        df = pd.DataFrame.from_dict(dd)
-        df.to_csv("INTOPT-grad.csv")
     def val_loss(self,economic_data,properties_data):
         test_obj = actual_obj(properties_data,n_items = test_batchsize)
 
