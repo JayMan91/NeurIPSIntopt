@@ -21,6 +21,8 @@ This repository is the official implementation of the paper: Interior Point Solv
 4. PyTorch
 5. Scipy
 6. scikit-learn
+7. qpth
+8. CVXPY
 
 The Forward pass of the algorithm is derived from https://github.com/scipy/scipy/tree/master/scipy/optimize
 
