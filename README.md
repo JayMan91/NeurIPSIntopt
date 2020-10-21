@@ -22,7 +22,7 @@ This repository is the official implementation of the paper: Interior Point Solv
 5. Scipy
 6. scikit-learn
 
-The Forward pass of the algorithm is derived from https://github.com/scipy/scipy
+The Forward pass of the algorithm is derived from https://github.com/scipy/scipy/tree/master/scipy/optimize
 
 
 ## Model Running
