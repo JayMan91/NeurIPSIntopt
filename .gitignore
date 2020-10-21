@@ -1,0 +1,9 @@
+*.pyc
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.log
+*.synctex.gz
+*.swp
+.ipynb_checkpoints
