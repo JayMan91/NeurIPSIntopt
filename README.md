@@ -4,10 +4,10 @@
 
 This repository is the official implementation of the paper: Interior Point Solving for LP-based prediction+optimisation
 ```
-@inproceedings{,
- author = {},
- title = {},
- booktitle = {Interior Point Solving for LP-based prediction+optimisation},
+@inproceedings{lpinterior2020,
+ author = {Jayanta Mandi and Tias Guns},
+ title={Interior Point Solving for LP-based prediction+optimisation}, 
+ booktitle={Advances in Neural Information Processing Systems},
  year = {2020}
 }
 ```
