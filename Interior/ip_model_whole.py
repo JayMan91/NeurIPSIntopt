@@ -874,7 +874,7 @@ def _get_step(x, d_x, t, d_t, tau, d_tau, kappa, d_kappa, alpha0):
     alpha_tau = alpha0 * tau / -d_tau if d_tau < 0 else 1
     alpha_t = alpha0 * np.min(t[i_t] / -d_t[i_t]) if np.any(i_t) else 1
     alpha_kappa = alpha0 * kappa / -d_kappa if d_kappa < 0 else 1
-    alpha = np.min([1, alpha_x, alpha_tau, alpha_t, alpha_kappa])
+    alpha = np.min([1, alpha_x, float(alpha_tau), alpha_t, float(alpha_kappa)])
     return alpha
 
 def _indicators(A, b, c,  x, y, t, tau, kappa):
