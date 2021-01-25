@@ -419,6 +419,7 @@ class intopt:
 
 				c_pred = self.net(X_torch).squeeze()
 				x = IPOfunc(A_torch,b_torch,torch.Tensor(),torch.Tensor(),
+				bounds= [(0., 1.)],
 					max_iter=self.max_iter,mu0 = self.mu0, 
 					thr=self.thr,method = self.method,
                     smoothing=self.smoothing, bounds= [(0,None)])(c_pred)

@@ -405,7 +405,7 @@ class Intopt:
                     b = torch.Tensor()
 
 
-                    x = IPOfunc(G,h,A,b,max_iter=self.max_iter, thr=self.thr,damping=self.damping,
+                    x = IPOfunc(G,h,A,b,bounds= [(0., 1.)],max_iter=self.max_iter, thr=self.thr,damping=self.damping,
                             smoothing=self.smoothing,bounds=[(0,1)])(-op)
                     loss = -(x*y).mean()
                     # op.retain_grad()

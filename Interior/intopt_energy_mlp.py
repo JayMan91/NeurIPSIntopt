@@ -623,8 +623,9 @@ class qptl_energy:
                 end = time.time()
                 runtime += end -start                
                 subepoch += 1
-                print('Epoch[{}/{}], loss(train):{:.2f} @ {:%Y-%m-%d %H:%M:%S} '.format(e+1, 
-                            i+1, loss.item(),datetime.datetime.now() ))
+                if forward_solved:
+                    print('Epoch[{}/{}], loss(train):{:.2f} @ {:%Y-%m-%d %H:%M:%S} '.format(e+1, 
+                                i+1, loss.item(),datetime.datetime.now() ))
                 if ((i+1)%7==0)|((i+1)%n_batches==0):
                     
                     if self.model_save:
