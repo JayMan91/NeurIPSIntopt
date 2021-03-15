@@ -44,7 +44,7 @@ SPO_rslt = {'model':'SPO','MSE-loss':val_rslt[0],'Regret':np.mean(val_rslt[1])}
 
 
 print("*** QPT ****")
-clf =  qptl(embedding_size= 7, num_layers=1,hidden_size=2,epochs=6,
+clf =  qptl(embedding_size= 7, num_layers=1,hidden_size=2,epochs=120,
 		optimizer=optim.Adam,batch_size=31,lr=1e-3,n_features=7)
 clf.fit(train_econ, train_prop)
 val_rslt = clf.val_loss(test_econ, test_prop)
@@ -52,10 +52,10 @@ QPT_rslt = {'model':'QPTL','MSE-loss':val_rslt[0],'Regret':np.mean(val_rslt[1])}
 
 
 print("*** HSD ****")
-damping = 0.001
-thr = 0.0001
-lr = 0.01
-epochs = 8
+damping = 0.1
+thr = 0.1
+lr = 1e-2
+epochs = 120
 clf =  Intopt(embedding_size= 7, num_layers=1,hidden_size=2,epochs= epochs,damping = damping,
 		optimizer=optim.Adam,batch_size=31,lr =lr,n_features=7,thr = thr)
 clf.fit(train_econ, train_prop)

@@ -758,7 +758,7 @@ def _get_solver(M, sparse=False, lstsq=False, sym_pos=True,
     	return None
     return solve
 
-def _get_delta(A,b,c,x,y,t,tau,kappa,gamma,eta,pc=True,damping=1e-3):
+def _get_delta(A,b,c,x,y,t,tau,kappa,gamma,eta,pc=True):
     n = len(x)
     # print("input TAU",tau)
     # print(" input X",x)
@@ -771,7 +771,7 @@ def _get_delta(A,b,c,x,y,t,tau,kappa,gamma,eta,pc=True,damping=1e-3):
   
     Dinv = (x/t) 
     M = A.dot(Dinv.reshape(-1,1)*A.T)
-    damping_param = damping
+    damping_param = 1e-6
     np.fill_diagonal(M, M.diagonal() + damping_param)
 
     solve = _get_solver(M)  
@@ -874,7 +874,7 @@ def _get_step(x, d_x, t, d_t, tau, d_tau, kappa, d_kappa, alpha0):
     alpha_tau = alpha0 * tau / -d_tau if d_tau < 0 else 1
     alpha_t = alpha0 * np.min(t[i_t] / -d_t[i_t]) if np.any(i_t) else 1
     alpha_kappa = alpha0 * kappa / -d_kappa if d_kappa < 0 else 1
-    alpha = np.min([1, alpha_x, float(alpha_tau), alpha_t, float(alpha_kappa)])
+    alpha = np.min([1, alpha_x, alpha_tau, alpha_t, alpha_kappa])
     return alpha
 
 def _indicators(A, b, c,  x, y, t, tau, kappa):
@@ -1315,7 +1315,7 @@ def IPOfunc(A =None,b =None,G=None,h=None,alpha0=0.9995,beta=0.1,pc = True,
                 if G_.shape[0] ==0:
                     G_ = None
             n = len(c_)
-            bounds_ = bounds if bounds is not None else [(0, None) for i in range(n)]
+            bounds_ = bounds if bounds is not None else [(0.,None) for i in range(n)]
             thr_ = thr if thr is not None else 0.
             max_iter_ = max_iter if max_iter is not None else 1000
             # presolve_= presolve
@@ -1392,8 +1392,7 @@ def IPOfunc(A =None,b =None,G=None,h=None,alpha0=0.9995,beta=0.1,pc = True,
                     gamma = 0 if pc else beta * np.mean(t * x)
                     def eta(g=gamma):
                         return 1 - g
-                    d_x,d_y,d_t, d_tau, d_kappa,solved = _get_delta(A_,b_,c_,x,y,t,tau,kappa,gamma,
-                        eta,pc= pc,damping=damping)
+                    d_x,d_y,d_t, d_tau, d_kappa,solved = _get_delta(A_,b_,c_,x,y,t,tau,kappa,gamma,eta,pc= pc)
                 
                     #logging.info("d_x %s  ,d_tau  %s, d_kappa %s"%(d_x,d_tau, d_kappa))
                     #print(solved)
@@ -1432,9 +1431,9 @@ def IPOfunc(A =None,b =None,G=None,h=None,alpha0=0.9995,beta=0.1,pc = True,
                 save_for_initialization ={"x":x,"y":y,"t":t,"tau":tau,"kappa":kappa}
                 logging.info("stopping mu value %s and threshold value is %s stopping tau %s and stopping kappa %s after iter count %d" %(mu,
                     thr_,tau,kappa, iter_count))
-                # if kappa>1e-3:
-                #     logging.info("kappa >0 ; c.x {}, b.y {}".format(c_.dot(x),
-                #         b_.dot(y)))
+                if kappa>1e-3:
+                    logging.info("kappa >0 ; c.x {}, b.y {}".format(c_.dot(x),
+                        b_.dot(y)))
 
                 # logging.info("calculated mu {:.2f}".format((x.dot(t) + np.dot(tau, kappa)) / (len(x) + 1)))
 
@@ -1505,8 +1504,8 @@ def IPOfunc(A =None,b =None,G=None,h=None,alpha0=0.9995,beta=0.1,pc = True,
             start = time.time()
 
             x,y,t,tau,kappa,c,A,b =  ctx.saved_tensors
-            # logging.info("shape of x {} y {} t {} c {} A {} b {}".format(x.shape,
-            #     y.shape,t.shape,c.shape,A.shape,b.shape))
+            logging.info("shape of x {} y {} t {} c {} A {} b {}".format(x.shape,
+                y.shape,t.shape,c.shape,A.shape,b.shape))
             laplace_smoothing = damping
             # db =  torch.zeros_like(b,dtype = torch.float)
             # dh = torch.zeros_like(h,dtype = torch.float)
@@ -1560,10 +1559,10 @@ def IPOfunc(A =None,b =None,G=None,h=None,alpha0=0.9995,beta=0.1,pc = True,
             c_grad = torch.zeros(ctx.n_x,dtype=torch.float)
             c_grad[ctx.var_index] = dc
 
-            # if any(torch.isnan(c_grad).tolist()):
-            #     logging.info("nan in bkwd pass ; del_x contains NaN?- {}".format(any(torch.isnan(del_x).tolist())))  
-            # if any(torch.isinf(c_grad).tolist()):
-            #     logging.info("Inf in bkwd pass ; del_x contains Inf?- {}".format(any(torch.isinf(del_x).tolist())))  
+            if any(torch.isnan(c_grad).tolist()):
+                logging.info("nan in bkwd pass ; del_x contains NaN?- {}".format(any(torch.isnan(del_x).tolist())))  
+            if any(torch.isinf(c_grad).tolist()):
+                logging.info("Inf in bkwd pass ; del_x contains Inf?- {}".format(any(torch.isinf(del_x).tolist())))  
             
             #dc = -del_x*x**2/mu
             #dA = -y*del_x*x**2/mu

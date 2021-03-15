@@ -358,64 +358,61 @@ class Intopt:
         self.optimizer = optimizer(self.model.parameters(), **hyperparams)
     def fit(self,economic_data,properties_data):
         logging.info("Intopt")
-
-
-
-        # train_df = MyCustomDataset(economic_data,properties_data)
-        
+        train_df = MyCustomDataset(economic_data,properties_data)
 
         criterion = nn.L1Loss(reduction='mean') #nn.MSELoss(reduction='mean')
         grad_list = []
         for e in range(self.epochs):
 
             total_loss = 0
-            for i in range(30):
-                logging.info("EPOCH Starts")
+            # for i in range(30):
+            #     logging.info("EPOCH Starts")
 
-                train_prop = properties_data.sample(n = 279,random_state =i)
-                valid_prop = properties_data.loc[~properties_data.index.isin(train_prop.index)]
-                train_sl =  train_prop.Sl.unique().tolist()
-                valid_sl =  valid_prop.Sl.unique().tolist()
-                train_prop = train_prop.sort_values(['Sl'],ascending=[True])
-                valid_prop = valid_prop.sort_values(['Sl'],ascending=[True])
+            #     train_prop = properties_data.sample(n = 279,random_state =i)
+            #     valid_prop = properties_data.loc[~properties_data.index.isin(train_prop.index)]
+            #     train_sl =  train_prop.Sl.unique().tolist()
+            #     valid_sl =  valid_prop.Sl.unique().tolist()
+            #     train_prop = train_prop.sort_values(['Sl'],ascending=[True])
+            #     valid_prop = valid_prop.sort_values(['Sl'],ascending=[True])
 
-                train_econ = economic_data[economic_data.Sl.isin(train_sl)]
-                valid_econ = economic_data[economic_data.Sl.isin(valid_sl)]
-                train_econ = train_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-                valid_econ = valid_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-                train_df = MyCustomDataset(train_econ,train_prop)
+            #     train_econ = economic_data[economic_data.Sl.isin(train_sl)]
+            #     valid_econ = economic_data[economic_data.Sl.isin(valid_sl)]
+            #     train_econ = train_econ.sort_values(['Sl','Lag'],ascending=[True,False])
+            #     valid_econ = valid_econ.sort_values(['Sl','Lag'],ascending=[True,False])
+            #     train_df = MyCustomDataset(train_econ,train_prop)
 
                 
-                train_dl = data_utils.DataLoader(train_df, batch_size=self.batch_size,shuffle=False)
+            train_dl = data_utils.DataLoader(train_df, batch_size=self.batch_size,shuffle=False)
+            
+            for x_f,x_c,x_t,y ,cst in train_dl:
+                self.optimizer.zero_grad()
+                h =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
+                c =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
                 
-                for x_f,x_c,x_t,y ,cst in train_dl:
-                    self.optimizer.zero_grad()
-                    h =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
-                    c =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
-                    
-                    op,states = self.model(x_f,x_c,x_t,(h,c))
-                    h,c = states
+                op,states = self.model(x_f,x_c,x_t,(h,c))
+                h,c = states
 
 
-                    G =  cst.unsqueeze(0)
-                    h = torch.tensor([x_t.shape[0]*self.budget],dtype=torch.float)
+                G =  cst.unsqueeze(0)
+                h = torch.tensor([x_t.shape[0]*self.budget],dtype=torch.float)
 
 
-                    A = torch.Tensor()
-                    b = torch.Tensor()
+                A = torch.Tensor()
+                b = torch.Tensor()
 
 
-                    x = IPOfunc(G,h,A,b,bounds= [(0., 1.)],max_iter=self.max_iter, thr=self.thr,damping=self.damping,
-                            smoothing=self.smoothing,bounds=[(0,1)])(-op)
-                    loss = -(x*y).mean()
-                    # op.retain_grad()
+                x = IPOfunc(G,h,A,b,bounds= [(0., 1.)],max_iter=self.max_iter, thr=self.thr,damping=self.damping,
+                        smoothing=self.smoothing)(-op)
+                loss = -(x*y).mean()
+                # op.retain_grad()
 
-                    loss.backward()
+                loss.backward()
+                self.optimizer.step()
 
-                logging.info("EPOCH Ends")
-            print("Epoch{} ::loss {} ->".format(e,total_loss))
-            print(self.val_loss(valid_econ, valid_prop))
-            print("______________")
+            logging.info("EPOCH Ends")
+            # print("Epoch{} ::loss {} ->".format(e,total_loss))
+            # print(self.val_loss(valid_econ, valid_prop))
+            # print("______________")
     def val_loss(self,economic_data,properties_data):
         test_obj = actual_obj(properties_data,n_items = test_batchsize)
 
@@ -515,82 +512,67 @@ class qptl:
         self.optimizer = optimizer(self.model.parameters(), **hyperparams)
     def fit(self,economic_data,properties_data):
         logging.info("QPTL")
-
-        # train_prop = properties_data.sample(n = 279)
-        # valid_prop = properties_data.loc[~properties_data.index.isin(train_prop.index)]
-        # train_sl =  train_prop.Sl.unique().tolist()
-        # valid_sl =  valid_prop.Sl.unique().tolist()
-        # train_prop = train_prop.sort_values(['Sl'],ascending=[True])
-        # valid_prop = valid_prop.sort_values(['Sl'],ascending=[True])
-
-        # train_econ = economic_data[economic_data.Sl.isin(train_sl)]
-        # valid_econ = economic_data[economic_data.Sl.isin(valid_sl)]
-        # train_econ = train_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-        # valid_econ = valid_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-
-
-        # train_df = MyCustomDataset(economic_data,properties_data)
-        # train_df = MyCustomDataset(train_econ,train_prop)
+        train_df = MyCustomDataset(economic_data,properties_data)
         grad_list = []
 
         for e in range(self.epochs):
             total_loss = 0
-            for i in range(30):
-                logging.info("EPOCH Starts")
+            # for i in range(30):
+            #     logging.info("EPOCH Starts")
 
-                train_prop = properties_data.sample(n = 279,random_state =i)
-                valid_prop = properties_data.loc[~properties_data.index.isin(train_prop.index)]
-                train_sl =  train_prop.Sl.unique().tolist()
-                valid_sl =  valid_prop.Sl.unique().tolist()
-                train_prop = train_prop.sort_values(['Sl'],ascending=[True])
-                valid_prop = valid_prop.sort_values(['Sl'],ascending=[True])
+            #     train_prop = properties_data.sample(n = 279,random_state =i)
+            #     valid_prop = properties_data.loc[~properties_data.index.isin(train_prop.index)]
+            #     train_sl =  train_prop.Sl.unique().tolist()
+            #     valid_sl =  valid_prop.Sl.unique().tolist()
+            #     train_prop = train_prop.sort_values(['Sl'],ascending=[True])
+            #     valid_prop = valid_prop.sort_values(['Sl'],ascending=[True])
 
-                train_econ = economic_data[economic_data.Sl.isin(train_sl)]
-                valid_econ = economic_data[economic_data.Sl.isin(valid_sl)]
-                train_econ = train_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-                valid_econ = valid_econ.sort_values(['Sl','Lag'],ascending=[True,False])
-                train_df = MyCustomDataset(train_econ,train_prop)
+            #     train_econ = economic_data[economic_data.Sl.isin(train_sl)]
+            #     valid_econ = economic_data[economic_data.Sl.isin(valid_sl)]
+            #     train_econ = train_econ.sort_values(['Sl','Lag'],ascending=[True,False])
+            #     valid_econ = valid_econ.sort_values(['Sl','Lag'],ascending=[True,False])
+            #     train_df = MyCustomDataset(train_econ,train_prop)
 
 
 
-                train_dl = data_utils.DataLoader(train_df, batch_size=self.batch_size,shuffle=False)
-                for x_f,x_c,x_t,y ,cst in train_dl:
-                    self.optimizer.zero_grad()
-                    h =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
-                    c =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
-                    
-                    op,states = self.model(x_f,x_c,x_t,(h,c))
-                    h,c = states
-                    G,h,A,b = make_matrix_qp(cst.detach().numpy(),x_t.shape[0]*self.budget)
-                    Q = torch.eye(x_t.shape[0])/self.tau
+            train_dl = data_utils.DataLoader(train_df, batch_size=self.batch_size,shuffle=False)
+            for x_f,x_c,x_t,y ,cst in train_dl:
+                self.optimizer.zero_grad()
+                h =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
+                c =  torch.zeros((self.num_layers,x_t.shape[0],self.hidden_size),dtype=torch.float)
+                
+                op,states = self.model(x_f,x_c,x_t,(h,c))
+                h,c = states
+                G,h,A,b = make_matrix_qp(cst.detach().numpy(),x_t.shape[0]*self.budget)
+                Q = torch.eye(x_t.shape[0])/self.tau
 
-                    model_params_quad = make_gurobi_model(G.detach().numpy(),h.detach().numpy(),
-                       A.detach().numpy(),b.detach().numpy(), self.tau*np.eye(x_t.shape[0]))
+                model_params_quad = make_gurobi_model(G.detach().numpy(),h.detach().numpy(),
+                    A.detach().numpy(),b.detach().numpy(), self.tau*np.eye(x_t.shape[0]))
 
-                    x = QPFunction(verbose=False, solver=QPSolvers.GUROBI, 
-                        model_params=model_params_quad)(Q.expand(1, *Q.shape), 
-                        -op, G.expand(1, *G.shape), h.expand(1, *h.shape),
-                        A.expand(1, *A.shape), b.expand(1, *b.shape))
-                    loss =  -(x*y).mean()
-                    op.retain_grad()
+                x = QPFunction(verbose=False, solver=QPSolvers.GUROBI, 
+                    model_params=model_params_quad)(Q.expand(1, *Q.shape), 
+                    -op, G.expand(1, *G.shape), h.expand(1, *h.shape),
+                    A.expand(1, *A.shape), b.expand(1, *b.shape))
+                loss =  -(x*y).mean()
+                op.retain_grad()
 
-                    loss.backward()
-                    # op_grad = copy.deepcopy(op.grad)
-                    # grad_dict = {}
-                    # grad_dict['epoch'] = e
-                    # grad_dict['subepoch'] = i
-                    # for l in range(len(op_grad)):
-                    #     grad_dict['qpt_cgrad'] = op_grad[l].item()
-                    #     grad_dict['prediction'] = op[l].item()
-                    #     grad_dict['true'] = y[l].item() 
-                    #     grad_list.append(copy.deepcopy(grad_dict))
-                    self.optimizer.step()
-                    total_loss += loss.item()
-                logging.info("EPOCH Ends")
+                loss.backward()
+                # op_grad = copy.deepcopy(op.grad)
+                # grad_dict = {}
+                # grad_dict['epoch'] = e
+                # grad_dict['subepoch'] = i
+                # for l in range(len(op_grad)):
+                #     grad_dict['qpt_cgrad'] = op_grad[l].item()
+                #     grad_dict['prediction'] = op[l].item()
+                #     grad_dict['true'] = y[l].item() 
+                #     grad_list.append(copy.deepcopy(grad_dict))
+                self.optimizer.step()
+                total_loss += loss.item()
+            logging.info("EPOCH Ends")
 
-            print("Epoch{} ::loss {} ->".format(e,total_loss))
-            print(self.val_loss(valid_econ, valid_prop))
-            print("______________")
+            # print("Epoch{} ::loss {} ->".format(e,total_loss))
+            # print(self.val_loss(valid_econ, valid_prop))
+            # print("______________")
 
 
     def val_loss(self,economic_data,properties_data):

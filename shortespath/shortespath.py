@@ -419,10 +419,10 @@ class intopt:
 
 				c_pred = self.net(X_torch).squeeze()
 				x = IPOfunc(A_torch,b_torch,torch.Tensor(),torch.Tensor(),
-				bounds= [(0., 1.)],
+				bounds= [(0., None)],
 					max_iter=self.max_iter,mu0 = self.mu0, 
 					thr=self.thr,method = self.method,
-                    smoothing=self.smoothing, bounds= [(0,None)])(c_pred)
+                    smoothing=self.smoothing)(c_pred)
 				loss = (y_torch*x).mean()
 				loss.backward()
 				self.optimizer.step()			

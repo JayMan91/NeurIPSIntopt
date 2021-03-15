@@ -24,8 +24,8 @@ def get_energy(fname=None, trainTestRatio=0.70):
     y = df.loc[:, 'SMPEP2'].values
 
     #no negative values allowed...for now I just clamp these values to zero. They occur three times in the training data.
-    # for i in range(len(y)):
-    #     y[i] = max(y[i], 0)
+    for i in range(len(y)):
+        y[i] = max(y[i], 0)
 
 
     # ordered split per complete group

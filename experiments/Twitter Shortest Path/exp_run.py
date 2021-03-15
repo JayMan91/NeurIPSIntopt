@@ -94,16 +94,16 @@ test_rslt = clf.validation_result(data,c,instances['test'])
 SPO_stage_rslt2 = {'layer':2,'model':'SPO','MSE-loss':test_rslt [0],'Regret':test_rslt[1]-test_obj}
 print("2-layer",SPO_stage_rslt2	)
 
-# QPT
+## QPT
 clf = qptl(A,data.shape[1],num_layers=2,num_instance=len(train_instances),
- intermediate_size=100,epochs=2,lr=0.7,gamma=1e-1)
+ intermediate_size=100,epochs=8,lr=0.7,gamma=1e-1)
 clf.fit(data,c,instances)
 test_rslt = clf.validation_result(data,c,instances['test'])
 qpt_rslt1 = {'layer':1,'model':'QPTL','MSE-loss':test_rslt [0],'Regret':test_rslt[1]-test_obj}
 print("1-layer",qpt_rslt1 )
 
 clf = qptl(A,data.shape[1],num_layers=3,num_instance=len(train_instances),
- intermediate_size=100,epochs=2,lr=0.7,gamma=1e-1)
+ intermediate_size=100,epochs=8,lr=0.7,gamma=1e-1)
 clf.fit(data,c,instances)
 test_rslt = clf.validation_result(data,c,instances['test'])
 qpt_rslt2 = {'layer':2,'model':'QPTL','MSE-loss':test_rslt [0],'Regret':test_rslt[1]-test_obj}
@@ -113,5 +113,7 @@ print("2-layer",qpt_rslt1 )
 
 rslt= pd.DataFrame([two_stage_rslt1,two_stage_rslt2,SPO_stage_rslt1,SPO_stage_rslt2, 
 	qpt_rslt1,qpt_rslt2, intopt_rslt1,intopt_rslt2,])
+
+
 with open("Result.csv", 'a') as f:
     rslt.to_csv(f,index=False, header=f.tell()==0)

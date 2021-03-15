@@ -64,6 +64,9 @@ def time_limit(seconds):
     finally:
         signal.alarm(0)
 
+
+
+
 def make_matrix_qp(nbMachines,nbTasks,nbResources,MC,U,D,E,L,P,idle,up,down,q,**h):
     # nbMachines: number of machine
     # nbTasks: number of task
@@ -204,11 +207,12 @@ def validation_module(param,n_items,epoch=None, batch=None,
     model_time = None,run_time=None,
     y_target_validation=None,sol_target_validation=None, y_pred_validation=None,
     y_target_test=None,sol_target_test=None,y_pred_test=None,
-    relax=False,**kwargs):
+    validation_relax=False,**kwargs):
 
-    clf =  Gurobi_ICON(relax=relax,method=-1,reset=True,presolve=True,**param)
-    clf.make_model()
-    def regret(y_target,sol_target,y_pred,relax= relax,**kwargs):
+
+    def regret(y_target,sol_target,y_pred,relax= False,**kwargs):
+        clf =  Gurobi_ICON(relax=relax,method=-1,reset=True,presolve=True,**param)
+        clf.make_model()
         n_knap = len(y_pred)//n_items
         regret_list= []
 
@@ -226,7 +230,7 @@ def validation_module(param,n_items,epoch=None, batch=None,
     if (y_pred_validation is not None) and (y_target_validation is not None) and (sol_target_validation is not None):
         #print("validation",y_pred_validation.shape,y_target_validation.shape)
         validation_result = regret(y_target_validation,sol_target_validation,
-         y_pred_validation,relax = relax)
+         y_pred_validation,relax = validation_relax)
         dict_validation['validation_regret'] = validation_result[0]
         dict_validation['validation_mse'] = validation_result[1]
     if (y_pred_test is not None) and (y_target_test is not None) and (sol_target_test is not None):
@@ -245,6 +249,62 @@ def validation_module(param,n_items,epoch=None, batch=None,
     if run_time is not None:
         dict_validation['time'] = run_time
     return dict_validation
+
+def validation_func(X_validation,y_validation,param,n_items,model, scaler = None,doScale = True):
+    if doScale:
+        if scaler is None:
+            raise Exception("you asked to do scaler but no StandardScaler found" )
+        X_validation = scaler.transform(X_validation)
+    model.eval()
+    X_tensor= torch.tensor(X_validation,dtype=torch.float)
+    y_pred = model(X_tensor).detach().numpy().squeeze()
+    model.train()
+    sol_validation = ICON_solution(param =param,y = y_validation,
+                            relax = False,n_items = n_items)
+
+    validation_rslt = validation_module(param = param,n_items= n_items,
+                y_target_test= y_validation,sol_target_test= sol_validation ,
+                y_pred_test= y_pred)
+    return validation_rslt['test_regret'] , validation_rslt['test_mse']        
+def predict_func(X, model, scaler=None,doScale = True):
+    
+    if doScale:
+        if scaler is None:
+                raise Exception("you asked to do scaler but no StandardScaler found" )
+        X1 = scaler.transform(X)
+    else:
+        X1 = X
+    model.eval()
+    X_tensor= torch.tensor(X1,dtype=torch.float)
+    y_pred = model(X_tensor).detach().numpy().squeeze()
+    model.train()
+    return y_pred 
+
+
+
+def return_dict_validation( instance,model,predict,param,n_items,
+    model_save, validation, test,
+     model_name="",validation_relax = True, 
+     X_validation = None,y_validation = None, X_test = None,y_test = None):
+
+        if validation:
+            y_pred_validation= predict(X_validation,doScale= False)
+            if not hasattr(instance, 'sol_validation'):
+                instance.sol_validation = ICON_solution(param = param,y = y_validation,
+                    relax = validation_relax,n_items = n_items)
+        else:
+            instance.sol_validation = None
+            y_pred_validation= None
+        if test:
+            y_pred_test= predict(X_test,doScale =False)
+            if not hasattr(instance, 'sol_test'):
+                instance.sol_test = ICON_solution(param = param,y =y_test,
+                    relax = False,n_items = n_items)
+        else:
+            instance.sol_test = None
+            y_pred_test= None
+        return y_pred_validation, y_pred_test
+
 
 class intopt_energy:
     def __init__(self,param,
@@ -359,7 +419,7 @@ class intopt_energy:
 
                     try:
                         with time_limit(self.problem_timelimit):
-                            x = IPOfunc(A,b,G,h,pc = True,max_iter=self.max_iter, 
+                            x = IPOfunc(A,b,G,h,pc = True,max_iter=self.max_iter,bounds= [(0., None)], 
                                 #init_val= init_params[(batchsize*shuffled_batches[i] + j)],
                                 smoothing=self.smoothing,thr=self.thr,method= self.method,
                                 mu0 = self.mu0,damping= self.damping)(c_pred)
@@ -411,35 +471,21 @@ class intopt_energy:
                 if ((i+1)%7==0)|((i+1)%n_batches==0):
                     if self.model_save:
                         torch.save(self.model.state_dict(), 
-                            str(self.model_name+"_Epoch"+str(e)+"_"+str(batch)+".pth"))
+                            str(self.model_name+"_Epoch"+str(e)+"_"+str(i)+".pth"))
 
                     if self.store_validation:
-                        if validation:
-                            y_pred_validation= self.predict(X_validation,doScale= False)
-                            if not hasattr(self, 'sol_validation'):
-                                self.sol_validation = ICON_solution(param = param,y = y_validation,
-                                    relax = self.validation_relax,n_items = self.n_items)
-                        else:
-                            self.sol_validation = None
-                            y_pred_validation= None
-                        if test:
-                            y_pred_test= self.predict(X_test,doScale =False)
-                            if not hasattr(self, 'sol_test'):
-                                self.sol_test = ICON_solution(param = param,y =y_test,
-                                    relax = False,n_items = self.n_items)
-                        else:
-                            self.sol_test = None
-                            y_pred_test= None
-
+                        y_pred_validation, y_pred_test = return_dict_validation( self,self.model,self.predict,self.param,self.n_items,
+                            self.model_save,  validation, test,
+                            self.model_name , self.validation_relax, 
+                            X_validation,y_validation , X_test ,y_test )
                         dict_validation = validation_module(param = param,n_items= self.n_items,
                             run_time= runtime,epoch= e, batch=i, 
                             model_time = self.model_time,
-                    y_target_validation= y_validation,
-                    sol_target_validation= self.sol_validation, 
-                    y_pred_validation= y_pred_validation,
-                    y_target_test= y_test,sol_target_test= self.sol_test ,
-                    y_pred_test= y_pred_test,
-                    relax= self.validation_relax)
+                            y_target_validation= y_validation,
+                            sol_target_validation= self.sol_validation, 
+                            y_pred_validation= y_pred_validation,
+                            y_target_test= y_test,sol_target_test= self.sol_test ,
+                            y_pred_test= y_pred_test,validation_relax = self.validation_relax)
                         validation_result.append(dict_validation)
         if self.store_validation :
             #return test_result
@@ -453,46 +499,14 @@ class intopt_energy:
 
             return df
 
-    def validation_result(self,X_validation,y_validation, scaler=None,doScale = True):
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X_validation = scaler.transform(X_validation)
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X_validation,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        sol_validation = ICON_solution(param = self.param,y = y_validation,
-                                relax = False,n_items = self.n_items)
-        validation_rslt = validation_module(param = self.param,n_items= self.n_items,
-                    y_target_test= y_validation,sol_target_test= sol_validation ,
-                    y_pred_test= y_pred)
-        return validation_rslt['test_regret'] , validation_rslt['test_mse']        
+    def validation_result(self,X_validation,y_validation, scaler= None,doScale = True):
+        scaler_ = self.scaler if scaler is None else scaler 
+        return validation_func(X_validation,y_validation,self.param, self.n_items, self.model,scaler_,doScale)
+       
 
     def predict(self,X,scaler=None,doScale = True):
-        
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X1 = scaler.transform(X)
-        else:
-            X1 = X
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X1,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        return y_pred 
-                             
-
-                             
+        scaler_ = self.scaler if scaler is None else scaler 
+        return predict_func(X, self.model, scaler_,doScale )                             
 
 class qptl_energy:
     def __init__(self,param,
@@ -627,38 +641,23 @@ class qptl_energy:
                     print('Epoch[{}/{}], loss(train):{:.2f} @ {:%Y-%m-%d %H:%M:%S} '.format(e+1, 
                                 i+1, loss.item(),datetime.datetime.now() ))
                 if ((i+1)%7==0)|((i+1)%n_batches==0):
-                    
                     if self.model_save:
                         torch.save(self.model.state_dict(), 
-                            str(self.model_name+"_Epoch"+str(e)+"_"+str(batch)+".pth"))
+                            str(self.model_name+"_Epoch"+str(e)+"_"+str(i)+".pth"))
 
                     if self.store_validation:
-                        if validation:
-                            y_pred_validation= self.predict(X_validation,doScale= False)
-                            if not hasattr(self, 'sol_validation'):
-                                self.sol_validation = ICON_solution(param = param,y = y_validation,
-                                    relax = self.validation_relax,n_items = self.n_items)
-                        else:
-                            self.sol_validation = None
-                            y_pred_validation= None
-                        if test:
-                            y_pred_test= self.predict(X_test,doScale =False)
-                            if not hasattr(self, 'sol_test'):
-                                self.sol_test = ICON_solution(param = param,y =y_test,
-                                    relax = False,n_items = self.n_items)
-                        else:
-                            self.sol_test = None
-                            y_pred_test= None
-
+                        y_pred_validation, y_pred_test = return_dict_validation( self,self.model,self.predict,self.param,self.n_items,
+                            self.model_save,  validation, test,
+                            self.model_name , self.validation_relax, 
+                            X_validation,y_validation , X_test ,y_test )
                         dict_validation = validation_module(param = param,n_items= self.n_items,
                             run_time= runtime,epoch= e, batch=i, 
                             model_time = self.model_time,
-                    y_target_validation= y_validation,
-                    sol_target_validation= self.sol_validation, 
-                    y_pred_validation= y_pred_validation,
-                    y_target_test= y_test,sol_target_test= self.sol_test ,
-                    y_pred_test= y_pred_test,
-                    relax= self.validation_relax)
+                            y_target_validation= y_validation,
+                            sol_target_validation= self.sol_validation, 
+                            y_pred_validation= y_pred_validation,
+                            y_target_test= y_test,sol_target_test= self.sol_test ,
+                            y_pred_test= y_pred_test,validation_relax = self.validation_relax)
                         validation_result.append(dict_validation)
         if self.store_validation :
             #return test_result
@@ -671,47 +670,16 @@ class qptl_energy:
             logging.info('Completion Time %s \n' %str(datetime.datetime.now()) )
 
             return df
-
-    def validation_result(self,X_validation,y_validation, scaler=None,doScale = True):
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X_validation = scaler.transform(X_validation)
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X_validation,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        sol_validation = ICON_solution(param = self.param,y = y_validation,
-                                relax = False,n_items = self.n_items)
-
-        
-
-        validation_rslt = validation_module(param = self.param,n_items= self.n_items,
-                    y_target_test= y_validation,sol_target_test= sol_validation ,
-                    y_pred_test= y_pred)
-        return validation_rslt['test_regret'] , validation_rslt['test_mse']        
+    def validation_result(self,X_validation,y_validation, scaler= None,doScale = True):
+        scaler_ = self.scaler if scaler is None else scaler 
+        return validation_func(X_validation,y_validation,self.param, self.n_items, self.model,scaler_,doScale)
+       
 
     def predict(self,X,scaler=None,doScale = True):
-        
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X1 = scaler.transform(X)
-        else:
-            X1 = X
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X1,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        return y_pred 
+        scaler_ = self.scaler if scaler is None else scaler 
+        return predict_func(X, self.model, scaler_,doScale )                             
+                    
+
                                                   
 class twostage_energy:
     def __init__(self,param,
@@ -790,8 +758,8 @@ class twostage_energy:
         shuffled_batches = [i for i in range(n_batches)]
 
         n_train = len(y)
-        scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer,
-            lr_lambda=lambda x:1 if x<2 else 0.95**x   )
+        # scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer,
+        #     lr_lambda=lambda x:1 if x<2 else 0.95**x   )
 
         for e in range(epochs):
             logging.info('Epoch %d'%e )
@@ -819,35 +787,21 @@ class twostage_energy:
                 if ((i+1)%7==0)|((i+1)%n_batches==0):
                     if self.model_save:
                         torch.save(self.model.state_dict(), 
-                            str(self.model_name+"_Epoch"+str(e)+"_"+str(batch)+".pth"))
+                            str(self.model_name+"_Epoch"+str(e)+"_"+str(i)+".pth"))
 
                     if self.store_validation:
-                        if validation:
-                            y_pred_validation= self.predict(X_validation,doScale= False)
-                            if not hasattr(self, 'sol_validation'):
-                                self.sol_validation = ICON_solution(param = param,y = y_validation,
-                                    relax = self.validation_relax,n_items = self.n_items)
-                        else:
-                            self.sol_validation = None
-                            y_pred_validation= None
-                        if test:
-                            y_pred_test= self.predict(X_test,doScale =False)
-                            if not hasattr(self, 'sol_test'):
-                                self.sol_test = ICON_solution(param = param,y =y_test,
-                                    relax = False,n_items = self.n_items)
-                        else:
-                            self.sol_test = None
-                            y_pred_test= None
-
+                        y_pred_validation, y_pred_test = return_dict_validation( self,self.model,self.predict,self.param,self.n_items,
+                            self.model_save,  validation, test,
+                            self.model_name , self.validation_relax, 
+                            X_validation,y_validation , X_test ,y_test )
                         dict_validation = validation_module(param = param,n_items= self.n_items,
                             run_time= runtime,epoch= e, batch=i, 
                             model_time = self.model_time,
-                    y_target_validation= y_validation,
-                    sol_target_validation= self.sol_validation, 
-                    y_pred_validation= y_pred_validation,
-                    y_target_test= y_test,sol_target_test= self.sol_test ,
-                    y_pred_test= y_pred_test,
-                    relax= self.validation_relax)
+                            y_target_validation= y_validation,
+                            sol_target_validation= self.sol_validation, 
+                            y_pred_validation= y_pred_validation,
+                            y_target_test= y_test,sol_target_test= self.sol_test ,
+                            y_pred_test= y_pred_test,validation_relax = self.validation_relax)
                         validation_result.append(dict_validation)
         if self.store_validation :
             #return test_result
@@ -860,50 +814,17 @@ class twostage_energy:
             logging.info('Completion Time %s \n' %str(datetime.datetime.now()) )
 
             return df
-    def validation_result(self,X_validation,y_validation, scaler=None,doScale = True):
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X_validation = scaler.transform(X_validation)
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X_validation,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        sol_validation = ICON_solution(param = self.param,y = y_validation,
-                                relax = False,n_items = self.n_items)
 
-        
-
-        validation_rslt = validation_module(param = self.param,n_items= self.n_items,
-                    y_target_test= y_validation,sol_target_test= sol_validation ,
-                    y_pred_test= y_pred)
-        return validation_rslt['test_regret'] , validation_rslt['test_mse']        
+    def validation_result(self,X_validation,y_validation, scaler= None,doScale = True):
+        scaler_ = self.scaler if scaler is None else scaler 
+        return validation_func(X_validation,y_validation,self.param, self.n_items, self.model,scaler_,doScale)
+       
 
     def predict(self,X,scaler=None,doScale = True):
-        
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X1 = scaler.transform(X)
-        else:
-            X1 = X
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X1,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        return y_pred 
-                             
+        scaler_ = self.scaler if scaler is None else scaler 
+        return predict_func(X, self.model, scaler_,doScale )                             
   
-
-
+                             
 class SPO_energy:
     def __init__(self,param,
        input_size,hidden_size,num_layers,target_size=1,
@@ -1012,37 +933,23 @@ class SPO_energy:
                 print('Epoch[{}/{}] @ {:%Y-%m-%d %H:%M:%S} '.format(e+1, 
                             i+1,datetime.datetime.now() ))
                 if ((i+1)%7==0)|((i+1)%n_batches==0):
-                    
                     if self.model_save:
                         torch.save(self.model.state_dict(), 
-                            str(self.model_name+"_Epoch"+str(e)+"_"+str(batch)+".pth"))
-                    if self.store_validation:
-                        if validation:
-                            y_pred_validation= self.predict(X_validation,doScale= False)
-                            if not hasattr(self, 'sol_validation'):
-                                self.sol_validation = ICON_solution(param = param,y = y_validation,
-                                    relax = self.validation_relax,n_items = self.n_items)
-                        else:
-                            self.sol_validation = None
-                            y_pred_validation= None
-                        if test:
-                            y_pred_test= self.predict(X_test,doScale =False)
-                            if not hasattr(self, 'sol_test'):
-                                self.sol_test = ICON_solution(param = param,y =y_test,
-                                    relax = False,n_items = self.n_items)
-                        else:
-                            self.sol_test = None
-                            y_pred_test= None
+                            str(self.model_name+"_Epoch"+str(e)+"_"+str(i)+".pth"))
 
+                    if self.store_validation:
+                        y_pred_validation, y_pred_test = return_dict_validation( self,self.model,self.predict,self.param,self.n_items,
+                            self.model_save,  validation, test,
+                            self.model_name , self.validation_relax, 
+                            X_validation,y_validation , X_test ,y_test )
                         dict_validation = validation_module(param = param,n_items= self.n_items,
                             run_time= runtime,epoch= e, batch=i, 
                             model_time = self.model_time,
-                    y_target_validation= y_validation,
-                    sol_target_validation= self.sol_validation, 
-                    y_pred_validation= y_pred_validation,
-                    y_target_test= y_test,sol_target_test= self.sol_test ,
-                    y_pred_test= y_pred_test,
-                    relax= self.validation_relax)
+                            y_target_validation= y_validation,
+                            sol_target_validation= self.sol_validation, 
+                            y_pred_validation= y_pred_validation,
+                            y_target_test= y_test,sol_target_test= self.sol_test ,
+                            y_pred_test= y_pred_test,validation_relax = self.validation_relax)
                         validation_result.append(dict_validation)
         if self.store_validation :
             #return test_result
@@ -1056,43 +963,12 @@ class SPO_energy:
 
             return df
 
-    def validation_result(self,X_validation,y_validation, scaler=None,doScale = True):
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X_validation = scaler.transform(X_validation)
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X_validation,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        sol_validation = ICON_solution(param = self.param,y = y_validation,
-                                relax = False,n_items = self.n_items)
+    def validation_result(self,X_validation,y_validation, scaler= None,doScale = True):
+        scaler_ = self.scaler if scaler is None else scaler 
+        return validation_func(X_validation,y_validation,self.param, self.n_items, self.model,scaler_,doScale)
+       
 
-        
-
-        validation_rslt = validation_module(param = self.param,n_items= self.n_items,
-                    y_target_test= y_validation,sol_target_test= sol_validation ,
-                    y_pred_test= y_pred)
-        return validation_rslt['test_regret'] , validation_rslt['test_mse']        
     def predict(self,X,scaler=None,doScale = True):
-        
-        if doScale:
-            if scaler is None:
-                try: 
-                    scaler = self.scaler
-                except:
-                    raise Exception("you asked to do scaler but no StandardScaler found" )
-            X1 = scaler.transform(X)
-        else:
-            X1 = X
-        model = self.model
-        model.eval()
-        X_tensor= torch.tensor(X1,dtype=torch.float)
-        y_pred = model(X_tensor).detach().numpy().squeeze()
-        model.train()
-        return y_pred 
-                             
+        scaler_ = self.scaler if scaler is None else scaler 
+        return predict_func(X, self.model, scaler_,doScale )                             
+                    
