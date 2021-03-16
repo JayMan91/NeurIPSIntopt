@@ -1,0 +1,14 @@
+cvxpy==1.1.7
+cvxpylayers==0.1.4
+cplex==12.10.0.3
+gurobipy==9.1.0
+joblib==0.13.2
+numpy==1.19.4
+qpth==0.0.15
+scikit-learn==0.23.1
+scipy==1.4.1
+scs==2.1.2
+sklearn==0.0
+torch==1.7.0
+torchsummary==1.5.1
+torchvision==0.8.1

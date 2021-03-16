@@ -57,13 +57,10 @@ test_rslt = clf.validation_result(X_1gtest,y_test)
 spo_rslt = {'model':'SPO','MSE-loss':test_rslt [1],'Regret':test_rslt[0] }
 
 ## Intopt HSD
-lr = 0.7
-damping = 1e-6
-thr = 0.1
-epochs = 8
+
 clf = intopt_energy(input_size=X_1gtrain.shape[1], param=param,hidden_size=1,
-	optimizer= optim.Adam, lr=lr,num_layers=1,epochs=epochs,
-	damping= damping,thr = thr,validation_relax=False)
+	optimizer= optim.Adam, lr=0.7,num_layers=1,epochs=8,
+	damping= 1e-6,thr = 0.1,validation_relax=False)
 clf.fit(X_1gtrain,y_train)
 test_rslt = clf.validation_result(X_1gtest,y_test)
 intopt_rslt = {'model':'IntOpt','MSE-loss':test_rslt [1],'Regret':test_rslt[0]}
