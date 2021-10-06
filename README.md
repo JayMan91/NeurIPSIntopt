@@ -1,6 +1,5 @@
 # NeurIPSIntopt
 
-# My Paper Title
 
 This repository is the official implementation of the paper: Interior Point Solving for LP-based prediction+optimisation
 ```
