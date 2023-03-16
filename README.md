@@ -29,18 +29,8 @@ The Forward pass of the algorithm is derived from https://github.com/scipy/scipy
 
 ## Model Running
 
-To run the experiment of Building Knapsack, go to the directory experiments/Building Knapsack/ and then run ModelRun.py
 
-```train
-cd experiments/Building Knapsack/
-python ModelRun.py
-```
-To run the experiment of Energy-cost aware scheduling, go to the directory experiments/EnergyScheduling/ and then run exp_run.py
+To run the experiment of Energy-cost aware scheduling, go to the directory EnergyScheduling/ and then run exp_run.py, to tun with the recommneded hypeprparameter follow `Instructionnotes.txt`
 
-To run the experiment of Shortest path problem, go to the directory experiments/Twitter Shortest Path/ and unzip the data and then run exp_run.py
-```train
-cd experiments/Twitter\ Shortest\ Path/
-unzip data.zip
-python exp_run.py
-```
+
 
