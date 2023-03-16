@@ -1,0 +1,4 @@
+To run SPO: python exp_run.py --load 1 --model SPO --lr 0.1
+To run Two-stage: python exp_run.py --load 1 --model twostage --lr 0.1
+To run QPTl: python exp_run.py --load 1 --model qptl --lr 0.1 --gamma 1e-5
+To run IntOpt: python exp_run.py --load 1 --model intopt_layer --thr 0.1 --damping 1e-6 --lr 0.7
