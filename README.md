@@ -3,7 +3,7 @@
 ## IntOpt as a differntiable optimization layer
 An example with knapsack problem (consider LP relaxation)
 ```
-from newintopt.intopt import intopt
+from intopt.intopt import intopt
 import numpy as np
 import torch	
 
@@ -23,7 +23,7 @@ A_trch, b_trch, G_trch, h_trch =  torch.from_numpy(A), torch.from_numpy(b),  tor
 intoptlayer = intopt(A_trch, b_trch, G_trch, h_trch)
 n_batch = 3
 cost = torch.randn(n_batch, n_items)
-sol = intoptlayer(-cost) #because knapsack is a maximization problem
+sol = intoptlayer(-cost) #because knapsack maximization problem
 
 print (sol.shape)
 ```
